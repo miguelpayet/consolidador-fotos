@@ -8,26 +8,24 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 
 public class Consolidador {
-    private static final int THREADS = 8;
     private static final double THRESHOLD = 0.15;
-    private static final Logger logger = Logger.getLogger(Foto.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(Foto.class.getName());
     private final List<Foto> cambios;
     private final Map<Hash, List<Foto>> fotos;
     private final String rutaOrigen;
-    private String rutaDestino;
-    private long total;
-    private long distintas;
-    private long iguales;
+    private final String rutaDestino;
+    private long total = 0;
+    private long distintas = 0;
+    private long iguales = 0;
+    private long repetidas = 0;
 
     public Consolidador(String rutaOrigen, String rutaDestino) {
         this.rutaOrigen = rutaOrigen;
@@ -50,6 +48,15 @@ public class Consolidador {
         }
     }
 
+    public void consolidar(Path path, int tipoFoto) {
+        try {
+            this.leerFoto(path.toString(), tipoFoto);
+        } catch (Exception e) {
+            System.err.println("Error processing file: " + path);
+            e.printStackTrace();
+        }
+    }
+
     public void imprimirCambio(String filename) {
         String base = new File(filename).getParent();
         System.out.println(base + " " + filename);
@@ -57,30 +64,8 @@ public class Consolidador {
 
     private void imprimirCuentas() {
         total++;
-        if (total % 1 == 0) {
-            logger.info(String.format("files: %d, ùnicos: %d, repetidos: %d", total, distintas, iguales));
-        }
-    }
-
-    public void leer() {
-        total = 0;
-        leerDirectorio(rutaOrigen, Foto.ORIGEN);
-        leerDirectorio(rutaDestino, Foto.DESTINO);
-    }
-
-    public void leerDirectorio(String filename, int tipoFoto) {
-        try (Stream<Path> stream = Files.walk(Paths.get(filename))) {
-            stream.filter(Files::isRegularFile)
-                    .forEach(path -> {
-                        try {
-                            this.leerFoto(path.toString(), tipoFoto);
-                        } catch (Exception e) {
-                            System.err.println("Error processing file: " + path);
-                            e.printStackTrace();
-                        }
-                    });
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (total % 100 == 0) {
+            LOGGER.info(String.format("files: %d, ùnicos: %d, iguales: %d, repetidas: %d", total, distintas, iguales, repetidas));
         }
     }
 
@@ -90,8 +75,8 @@ public class Consolidador {
             Foto foto = new Foto(filename, tipo_foto);
             registrarFoto(foto);
         } catch (Exception e) {
-            logger.warning("error al calcular " + filename);
-            logger.warning(e.getMessage());
+            LOGGER.warning("error al calcular " + filename);
+            LOGGER.warning(e.getMessage());
         }
     }
 
@@ -133,18 +118,24 @@ public class Consolidador {
 
     public void registrarFoto(Foto foto) {
         boolean agregado = false;
+        boolean existeFoto = false;
         for (Map.Entry<Hash, List<Foto>> entry : fotos.entrySet()) {
             Hash imageHash = entry.getKey();
             List<Foto> fotoList = entry.getValue();
-            double similarity = imageHash.normalizedHammingDistance(foto.getImageHash());
-            if (similarity < Consolidador.THRESHOLD) {
-                fotoList.add(foto);
-                agregado = true;
-                iguales++;
-                break;
+            existeFoto = fotoList.stream().anyMatch(laFoto -> laFoto.getFileHash() == foto.getFileHash());
+            if (!existeFoto) {
+                double similarity = imageHash.normalizedHammingDistance(foto.getImageHash());
+                if (similarity < Consolidador.THRESHOLD) {
+                    fotoList.add(foto);
+                    agregado = true;
+                    iguales++;
+                    break;
+                }
+            } else {
+                repetidas++;
             }
         }
-        if (!agregado) {
+        if (!agregado && !existeFoto) {
             ArrayList<Foto> fotoList = new ArrayList<>(1);
             fotoList.add(foto);
             fotos.put(foto.getImageHash(), fotoList);

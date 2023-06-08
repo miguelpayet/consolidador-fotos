@@ -7,14 +7,14 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import dev.brachtendorf.jimagehash.hash.Hash;
 import dev.brachtendorf.jimagehash.hashAlgorithms.HashingAlgorithm;
 import dev.brachtendorf.jimagehash.hashAlgorithms.PerceptiveHash;
+import net.jpountz.xxhash.XXHash64;
+import net.jpountz.xxhash.XXHashFactory;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 
 public class Foto {
 
+    private static final XXHashFactory HASH_FACTORY = XXHashFactory.fastestInstance();
     public static final int DESTINO = 2;
     public static final int ORIGEN = 1;
     private static final Logger LOGGER = Logger.getLogger(Foto.class.getName());
@@ -31,7 +32,7 @@ public class Foto {
     private final int tipo;
     private String archivoDestino;
     private Date fechaCreacion;
-    private String fileHash;
+    private long fileHash;
     private Hash imageHash;
     private long tamaño;
 
@@ -40,7 +41,7 @@ public class Foto {
         this.tipo = tipo;
         this.archivoDestino = null;
         this.fechaCreacion = null;
-        this.fileHash = null;
+        this.fileHash = 0;
         this.imageHash = null;
         this.tamaño = 0;
         reset();
@@ -48,22 +49,11 @@ public class Foto {
 
     private void calcularFileHash() {
         try {
-            MessageDigest md = MessageDigest.getInstance("XXHASH64");
-            try (FileInputStream fis = new FileInputStream(archivoOrigen)) {
-                byte[] dataBytes = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = fis.read(dataBytes)) != -1) {
-                    md.update(dataBytes, 0, bytesRead);
-                }
-            }
-            byte[] mdBytes = md.digest();
-            StringBuilder sb = new StringBuilder();
-            for (byte mdByte : mdBytes) {
-                sb.append(Integer.toString((mdByte & 0xff) + 0x100, 16).substring(1));
-            }
-            fileHash = sb.toString();
-        } catch (IOException | NoSuchAlgorithmException e) {
-            fileHash = null;
+            byte[] fileData = Files.readAllBytes(Paths.get(archivoOrigen));
+            XXHash64 xxHash64 = HASH_FACTORY.hash64();
+            fileHash = xxHash64.hash(fileData, 0, fileData.length, 123456789);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -99,7 +89,7 @@ public class Foto {
         }
     }
 
-    public String getFileHash() {
+    public long getFileHash() {
         return fileHash;
     }
 

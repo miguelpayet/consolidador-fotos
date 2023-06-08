@@ -2,26 +2,41 @@ package pe.net.sdp.foto;
 
 import pe.net.sdp.ConfiguradorLog;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.logging.Logger;
 
 public class Runner {
 
-    private static final Logger logger = Logger.getLogger(Foto.class.getName());
-    private static String rutaOrigen;
-    private static String rutaDestino;
+    private static final Logger LOGGER = Logger.getLogger(Foto.class.getName());
+    private static String RUTA_ORIGEN;
+    private static String RUTA_DESTINO;
 
     private static void leerConfiguracion() {
         ConfiguradorLog configuradorLog = new ConfiguradorLog();
         configuradorLog.configurar();
-        rutaOrigen = SinglePropertyLoader.getInstance().getProperty("ruta_input");
-        rutaDestino = SinglePropertyLoader.getInstance().getProperty("ruta_output");
+        RUTA_ORIGEN = SinglePropertyLoader.getInstance().getProperty("ruta_input");
+        RUTA_DESTINO = SinglePropertyLoader.getInstance().getProperty("ruta_output");
     }
 
     public static void main(String[] args) {
-        logger.info("inicio");
+        LOGGER.info("inicio");
         leerConfiguracion();
-        Consolidador consolidador = new Consolidador(rutaOrigen, rutaDestino);
-        consolidador.leer();
-        logger.info("final");
+        Consolidador consolidador = new Consolidador(RUTA_ORIGEN, RUTA_DESTINO);
+        Visitador pf = new Visitador(consolidador);
+        pf.setTipoFoto(Foto.ORIGEN);
+        try {
+            Files.walkFileTree(Path.of(Runner.RUTA_ORIGEN), pf);
+        } catch (IOException e) {
+            LOGGER.severe("error al leer ruta origen");
+        }
+        pf.setTipoFoto(Foto.DESTINO);
+        try {
+            Files.walkFileTree(Path.of(Runner.RUTA_DESTINO), pf);
+        } catch (IOException e) {
+            LOGGER.severe("error al leer ruta destino");
+        }
+        LOGGER.info("final");
     }
 }

@@ -41,7 +41,7 @@ public class Directorio {
         for (Foto foto : fotos) {
             List<Foto> fotoList = hashes.getOrDefault(foto.getFileHash(), new ArrayList<>());
             fotoList.add(foto);
-            hashes.put(foto.getFileHash(), fotoList);
+            //hashes.put(foto.getFileHash(), fotoList);
         }
         return hashes;
     }
