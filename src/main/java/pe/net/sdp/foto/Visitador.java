@@ -1,26 +1,24 @@
 package pe.net.sdp.foto;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.logging.Logger;
 
 import static java.nio.file.FileVisitResult.CONTINUE;
 
 public class Visitador extends SimpleFileVisitor<Path> {
 
-    private static final Logger LOGGER = Logger.getLogger(Visitador.class.getName());
+    private static final Logger LOGGER = LogManager.getLogger(Visitador.class.getName());
     private final Consolidador consolidador;
     private int tipoFoto;
 
     public Visitador(Consolidador consolidador) {
         this.consolidador = consolidador;
-    }
-
-    public int getTipoFoto() {
-        return tipoFoto;
     }
 
     public void setTipoFoto(int tipoFoto) {
@@ -30,7 +28,7 @@ public class Visitador extends SimpleFileVisitor<Path> {
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attr) {
         //LOGGER.info(String.format("File: %s", file));
-        consolidador.consolidar(file, tipoFoto);
+        consolidador.leerFoto(file, tipoFoto);
         return CONTINUE;
     }
 

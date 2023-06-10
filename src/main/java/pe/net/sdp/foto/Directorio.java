@@ -36,33 +36,6 @@ public class Directorio {
         return foto.getRutaDestino(consolidador.getRutaDestino()) + "/" + file_base_name + ".DIR";
     }
 
-    public Map<String, List<Foto>> consolidarArchivos() {
-        Map<String, List<Foto>> hashes = new HashMap<>();
-        for (Foto foto : fotos) {
-            List<Foto> fotoList = hashes.getOrDefault(foto.getFileHash(), new ArrayList<>());
-            fotoList.add(foto);
-            //hashes.put(foto.getFileHash(), fotoList);
-        }
-        return hashes;
-    }
-
-    public void encontrarDuplicados() {
-        Map<String, List<Foto>> hashes = consolidarArchivos();
-        for (List<Foto> fotos : hashes.values()) {
-            if (fotos.size() > 1) {
-                if (fotos.contains(foto_principal)) {
-                    for (Foto foto : fotos) {
-                        if (foto != foto_principal) {
-                            foto.setArchivoDestino(null);
-                        }
-                    }
-                } else {
-                    fotos.subList(1, fotos.size()).forEach(foto -> foto.setArchivoDestino(null));
-                }
-            }
-        }
-    }
-
     public Foto encontrarFotoPrincipal() {
         for (String extension : extensiones) {
             List<Foto> fotos = new ArrayList<>();

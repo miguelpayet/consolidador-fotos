@@ -1,10 +1,9 @@
-fotos*/
+/fotos*
 !**/src/main/**/build/
 !**/src/main/**/target/
 !**/src/test/**/build/
 !**/src/test/**/target/
 !.mvn/wrapper/maven-wrapper.jar
-.idea/
 *.iml
 *.ipr
 *.iws
@@ -12,6 +11,7 @@ fotos*/
 .apt_generated
 .classpath
 .factorypath
+.idea/
 .idea/compiler.xml
 .idea/jarRepositories.xml
 .idea/libraries/
@@ -26,5 +26,8 @@ fotos*/
 /nbbuild/
 /nbdist/
 /nbproject/private/
+:wqfotos*/
 build/
+consolidador.log
+dependency-reduced-pom.xml
 target/

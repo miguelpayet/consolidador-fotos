@@ -7,7 +7,7 @@ import java.util.logging.LogManager;
 public class ConfiguradorLog {
 
     public void configurar() {
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("logging.properties");
+        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("log4j2.xml");
         if (inputStream != null) {
             try {
                 LogManager.getLogManager().readConfiguration(inputStream);
@@ -21,7 +21,7 @@ public class ConfiguradorLog {
                 }
             }
         } else {
-            System.err.println("logging.properties file not found in the classpath.");
+            System.err.println("log4j2.xml file not found in the classpath.");
         }
     }
 

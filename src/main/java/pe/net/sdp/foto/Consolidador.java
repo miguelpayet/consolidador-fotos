@@ -3,6 +3,8 @@ package pe.net.sdp.foto;
 import dev.brachtendorf.jimagehash.hash.Hash;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,22 +15,20 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 public class Consolidador {
+
+    private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
     private static final double THRESHOLD = 0.15;
-    private static final Logger LOGGER = Logger.getLogger(Foto.class.getName());
     private final List<Foto> cambios;
-    private final Map<Hash, List<Foto>> fotos;
-    private final String rutaOrigen;
-    private final String rutaDestino;
-    private long total = 0;
     private long distintas = 0;
+    private final Map<Hash, List<Foto>> fotos;
     private long iguales = 0;
     private long repetidas = 0;
+    private final String rutaDestino;
+    private long total = 0;
 
-    public Consolidador(String rutaOrigen, String rutaDestino) {
-        this.rutaOrigen = rutaOrigen;
+    public Consolidador(String rutaDestino) {
         this.rutaDestino = rutaDestino;
         this.cambios = new ArrayList<>();
         this.fotos = new HashMap<>();
@@ -46,37 +46,23 @@ public class Consolidador {
                 }
             }
         }
+        LOGGER.info(String.format("cantidad de cambios: %d", cambios.size()));
     }
 
-    public void consolidar(Path path, int tipoFoto) {
-        try {
-            this.leerFoto(path.toString(), tipoFoto);
-        } catch (Exception e) {
-            System.err.println("Error processing file: " + path);
-            e.printStackTrace();
-        }
+    public void imprimirCuentas() {
+        LOGGER.info(String.format("files: %d, únicos: %d, iguales: %d, repetidas: %d", total, distintas, iguales, repetidas));
     }
 
-    public void imprimirCambio(String filename) {
-        String base = new File(filename).getParent();
-        System.out.println(base + " " + filename);
-    }
-
-    private void imprimirCuentas() {
+    public void leerFoto(Path filePath, int tipoFoto) {
         total++;
         if (total % 100 == 0) {
-            LOGGER.info(String.format("files: %d, ùnicos: %d, iguales: %d, repetidas: %d", total, distintas, iguales, repetidas));
-        }
-    }
-
-    public void leerFoto(String filename, int tipo_foto) {
-        try {
             imprimirCuentas();
-            Foto foto = new Foto(filename, tipo_foto);
+        }
+        try {
+            Foto foto = new Foto(filePath.toString(), tipoFoto);
             registrarFoto(foto);
-        } catch (Exception e) {
-            LOGGER.warning("error al calcular " + filename);
-            LOGGER.warning(e.getMessage());
+        } catch (FotoException e) {
+            LOGGER.error(String.format("error al procesar %s - %s", filePath, e.getMessage()));
         }
     }
 
@@ -90,28 +76,32 @@ public class Consolidador {
         }
     }
 
-    public void procesarUnMultiple(List<Foto> arreglo_fotos) {
-        arreglo_fotos.forEach(this::procesarUnUnico);
-        Directorio directorio = new Directorio(arreglo_fotos, this);
+    public void procesarUnMultiple(List<Foto> listaFotos) {
+        listaFotos.forEach(this::procesarUnUnico);
+        Directorio directorio = new Directorio(listaFotos, this);
         directorio.aplicarRutaPrincipal();
-        directorio.encontrarDuplicados();
     }
 
     public void procesarUnUnico(Foto foto) {
         foto.setArchivoDestino(foto.getRutaDestino(rutaDestino) + "/" + FilenameUtils.getName(foto.getArchivoOrigen()));
     }
 
-    public void realizarCambios() throws IOException {
+    public void realizarCambios() {
         for (Foto foto : cambios) {
-            String directorio = new File(foto.getArchivoDestino()).getParent();
-            File dir = new File(directorio);
-            if (!dir.exists()) {
-                FileUtils.forceMkdir(new File(directorio));
-            }
-            if (foto.getTipo() == Foto.ORIGEN) {
-                Files.copy(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()), StandardCopyOption.COPY_ATTRIBUTES);
-            } else {
-                Files.move(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()));
+            try {
+                String directorio = new File(foto.getArchivoDestino()).getParent();
+                File dir = new File(directorio);
+                if (!dir.exists()) {
+                    FileUtils.forceMkdir(new File(directorio));
+                }
+                if (foto.getTipo() == Foto.ORIGEN) {
+                    Files.copy(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()), StandardCopyOption.COPY_ATTRIBUTES);
+                } else {
+                    Path movido = Files.move(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()));
+                }
+            } catch (IOException e) {
+                LOGGER.info("error al realizar cambio");
+                e.printStackTrace(System.out);
             }
         }
     }
@@ -133,6 +123,7 @@ public class Consolidador {
                 }
             } else {
                 repetidas++;
+                break;
             }
         }
         if (!agregado && !existeFoto) {
