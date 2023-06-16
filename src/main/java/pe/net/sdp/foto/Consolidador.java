@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +20,7 @@ import java.util.Map;
 public class Consolidador {
 
     private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
-    private static final double THRESHOLD = 0.15;
+    private static final double THRESHOLD = 0.12;
     private final List<Foto> cambios;
     private long distintas = 0;
     private final Map<Hash, List<Foto>> fotos;
@@ -34,6 +35,11 @@ public class Consolidador {
         this.fotos = new HashMap<>();
     }
 
+    private void copiarArchivo(String archivoOrigen, String archivoDestino) throws IOException {
+        archivoDestino = obtenerNombreUnico(archivoDestino);
+        Files.copy(Path.of(archivoOrigen), Path.of(archivoDestino), StandardCopyOption.COPY_ATTRIBUTES);
+    }
+
     public String getRutaDestino() {
         return rutaDestino;
     }
@@ -46,11 +52,11 @@ public class Consolidador {
                 }
             }
         }
-        LOGGER.info(String.format("cantidad de cambios: %d", cambios.size()));
+        LOGGER.info("cantidad de cambios: {}", cambios.size());
     }
 
     public void imprimirCuentas() {
-        LOGGER.info(String.format("files: %d, únicos: %d, iguales: %d, repetidas: %d", total, distintas, iguales, repetidas));
+        LOGGER.info("files: {}, únicos: {}, iguales: {}, repetidas: {}", total, distintas, iguales, repetidas);
     }
 
     public void leerFoto(Path filePath, int tipoFoto) {
@@ -62,8 +68,48 @@ public class Consolidador {
             Foto foto = new Foto(filePath.toString(), tipoFoto);
             registrarFoto(foto);
         } catch (FotoException e) {
-            LOGGER.error(String.format("error al procesar %s - %s", filePath, e.getMessage()));
+            LOGGER.error("error al procesar {} - {}", filePath, e.getMessage());
         }
+    }
+
+    public void listarCambios() {
+        for (Foto foto : cambios) {
+            if (foto.getTipo() == Foto.ORIGEN) {
+                LOGGER.info(String.format("mover %s -> %s", foto.getArchivoOrigen(), foto.getArchivoDestino()));
+            } else {
+                LOGGER.info(String.format("mover %s -> %s", foto.getArchivoOrigen(), foto.getArchivoDestino()));
+            }
+        }
+        listarFechas();
+    }
+
+    public void listarFechas() {
+        List<LocalDate> listaFechas = fotos.values().stream()
+                .flatMap(List::stream)
+                .map(Foto::getFechaCreacion)
+                .distinct()
+                .sorted()
+                .toList();
+        for (LocalDate fecha : listaFechas) {
+            LOGGER.info(fecha.toString());
+        }
+    }
+
+    private void moverArchivo(String archivoOrigen, String archivoDestino) throws IOException {
+        archivoDestino = obtenerNombreUnico(archivoDestino);
+        Files.move(Path.of(archivoOrigen), Path.of(archivoDestino));
+    }
+
+    private String obtenerNombreUnico(String archivoDestino) {
+        int posicion = 0;
+        File fileDestino = new File(archivoDestino);
+        String baseName = FilenameUtils.getBaseName(archivoDestino);
+        String extension = FilenameUtils.getExtension(archivoDestino);
+        while (fileDestino.exists()) {
+            archivoDestino = String.format("%s-%02d.%s", baseName, posicion, extension);
+            fileDestino = new File(archivoDestino);
+        }
+        return archivoDestino;
     }
 
     public void procesar() {
@@ -95,12 +141,12 @@ public class Consolidador {
                     FileUtils.forceMkdir(new File(directorio));
                 }
                 if (foto.getTipo() == Foto.ORIGEN) {
-                    Files.copy(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()), StandardCopyOption.COPY_ATTRIBUTES);
+                    copiarArchivo(foto.getArchivoOrigen(), foto.getArchivoDestino());
                 } else {
-                    Path movido = Files.move(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()));
+                    moverArchivo(foto.getArchivoOrigen(), foto.getArchivoDestino());
                 }
             } catch (IOException e) {
-                LOGGER.info("error al realizar cambio");
+                LOGGER.info("error al realizar cambio - {}", foto.getArchivoOrigen());
                 e.printStackTrace(System.out);
             }
         }
@@ -109,12 +155,18 @@ public class Consolidador {
     public void registrarFoto(Foto foto) {
         boolean agregado = false;
         boolean existeFoto = false;
+        double similarity;
         for (Map.Entry<Hash, List<Foto>> entry : fotos.entrySet()) {
             Hash imageHash = entry.getKey();
             List<Foto> fotoList = entry.getValue();
             existeFoto = fotoList.stream().anyMatch(laFoto -> laFoto.getFileHash() == foto.getFileHash());
             if (!existeFoto) {
-                double similarity = imageHash.normalizedHammingDistance(foto.getImageHash());
+                try {
+                    similarity = imageHash.normalizedHammingDistance(foto.getImageHash());
+                    LOGGER.info(String.format("%s - %f", foto.getArchivoDestino(), similarity));
+                } catch (IllegalArgumentException e) {
+                    similarity = 1;
+                }
                 if (similarity < Consolidador.THRESHOLD) {
                     fotoList.add(foto);
                     agregado = true;

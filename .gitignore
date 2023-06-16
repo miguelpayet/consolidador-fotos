@@ -1,3 +1,4 @@
+/output*
 /fotos*
 !**/src/main/**/build/
 !**/src/main/**/target/

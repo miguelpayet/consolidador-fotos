@@ -27,18 +27,19 @@ public class Runner {
         try {
             Files.walkFileTree(Path.of(Runner.RUTA_DESTINO), pf);
         } catch (IOException e) {
-            LOGGER.error("error al leer ruta destino");
+            LOGGER.error("error al leer ruta destino {}", e.getMessage());
         }
         pf.setTipoFoto(Foto.ORIGEN);
         try {
             Files.walkFileTree(Path.of(Runner.RUTA_ORIGEN), pf);
         } catch (IOException e) {
-            LOGGER.error("error al leer ruta origen");
+            LOGGER.error("error al leer ruta destino {}", e.getMessage());
         }
         consolidador.imprimirCuentas();
         consolidador.procesar();
         consolidador.identificarCambios();
         consolidador.realizarCambios();
+        consolidador.listarCambios();
         LOGGER.info("final");
     }
 }

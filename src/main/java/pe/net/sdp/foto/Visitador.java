@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -27,14 +28,16 @@ public class Visitador extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attr) {
-        //LOGGER.info(String.format("File: %s", file));
-        consolidador.leerFoto(file, tipoFoto);
-        return CONTINUE;
-    }
-
-    @Override
-    public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
-        //LOGGER.info(String.format("Directory: %s", dir));
+        boolean isHidden;
+        try {
+            isHidden = Files.isHidden(file);
+        } catch (IOException e) {
+            isHidden = false;
+        }
+        if (!isHidden) {
+            //LOGGER.info(String.format("File: %s", file));
+            consolidador.leerFoto(file, tipoFoto);
+        }
         return CONTINUE;
     }
 

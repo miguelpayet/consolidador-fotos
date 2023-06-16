@@ -1,4 +1,4 @@
-package pe.net.sdp;
+package pe.net.sdp.foto;
 
 import java.io.IOException;
 import java.io.InputStream;
