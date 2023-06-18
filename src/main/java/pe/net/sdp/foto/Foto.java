@@ -16,10 +16,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.stream.Stream;
@@ -27,29 +24,31 @@ import java.util.stream.Stream;
 
 public class Foto {
 
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd");
     public static final int DESTINO = 2;
     public static final LocalDate FECHA_DEFAULT = LocalDate.of(1990, 1, 1);
-    private static final HashingAlgorithm HASHER = new PerceptiveHash(32);
     private static final XXHashFactory HASH_FACTORY = XXHashFactory.fastestInstance();
     private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
     public static final int ORIGEN = 1;
     private String archivoDestino = null;
     private final String archivoOrigen;
+    private final String extension;
     private LocalDate fechaCreacion = null;
     private long fileHash = 0;
     private Hash imageHash = null;
-    private long tamaño = 0;
     private final int tipo;
-    private final XXHash64 xxHash64 = HASH_FACTORY.hash64();
-    public Foto(String archivo, int tipo) throws FotoException {
-        this.archivoOrigen = archivo;
+    private final XXHash64 xxHash64;
+
+    public Foto(String unArchivo, int tipo) throws FotoException {
+        this.archivoOrigen = unArchivo;
+        this.extension = FilenameUtils.getExtension(archivoOrigen);
         this.tipo = tipo;
-        reset();
+        this.xxHash64 = HASH_FACTORY.hash64();
+        calcularDatosFoto();
     }
 
     private void calcularDatosFoto() throws FotoException {
         File file = new File(archivoOrigen);
-        String extension = FilenameUtils.getExtension(archivoOrigen).toUpperCase();
         byte[] fileBytes;
         try {
             fileBytes = Files.readAllBytes(file.toPath());
@@ -67,12 +66,7 @@ public class Foto {
                     }
                 });
         if (imageHash == null) {
-            if (extension.equals("HEIC")) {
-                BigInteger bigIntegerValue = BigInteger.valueOf(fileHash);
-                imageHash = new Hash(bigIntegerValue, 32, 123);
-            } else {
-                throw new FotoException("error al hashear");
-            }
+            throw new FotoException("error al calcular hash de imagen");
         }
     }
 
@@ -92,7 +86,7 @@ public class Foto {
 
     private Runnable calcularFileHash(byte[] fileBytes) {
         return () -> {
-            fileHash = xxHash64.hash(fileBytes, 0, fileBytes.length, 123456789);
+            fileHash = xxHash64.hash(fileBytes, 0, fileBytes.length, 6839245178L);
         };
     }
 
@@ -103,7 +97,8 @@ public class Foto {
                 BufferedImage bufferedImage = null;
                 try {
                     bufferedImage = ImageIO.read(bais);
-                    imageHash = HASHER.hash(bufferedImage);
+                    HashingAlgorithm hasher = new PerceptiveHash(32);
+                    imageHash = hasher.hash(bufferedImage);
                 } catch (IOException | IllegalArgumentException e) {
                     imageHash = null;
                 }
@@ -131,33 +126,17 @@ public class Foto {
         return imageHash;
     }
 
-    public String getRutaDestino(String directorioDestino) {
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd");
-        return directorioDestino + "/" + fechaCreacion.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-    }
-
-    public long getTamaño() {
-        return tamaño;
-    }
-
     public int getTipo() {
         return tipo;
     }
 
-    public void reset() throws FotoException {
-        setTamaño();
-        calcularDatosFoto();
+    public void setRutaArchivoDestino(String unDirectorioDestino) {
+        archivoDestino = String.format("%s/%s", unDirectorioDestino, FilenameUtils.getName(archivoOrigen));
     }
 
-    public void setArchivoDestino(String archivoDestino) {
-        this.archivoDestino = archivoDestino;
+    public void setRutaFechaArchivoDestino(String unDirectorioDestino) {
+        archivoDestino = String.format("%s/%s/%s", unDirectorioDestino, fechaCreacion.format(DATE_FORMAT),
+                FilenameUtils.getName(archivoOrigen));
     }
 
-    private void setTamaño() {
-        try {
-            tamaño = Files.size(Path.of(archivoOrigen));
-        } catch (IOException e) {
-            tamaño = 0;
-        }
-    }
 }

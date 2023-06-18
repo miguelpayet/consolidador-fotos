@@ -35,8 +35,9 @@ public class Runner {
         } catch (IOException e) {
             LOGGER.error("error al leer ruta destino {}", e.getMessage());
         }
-        consolidador.imprimirCuentas();
+        consolidador.consolidar();
         consolidador.procesar();
+        consolidador.imprimirCuentas();
         consolidador.identificarCambios();
         consolidador.realizarCambios();
         consolidador.listarCambios();
