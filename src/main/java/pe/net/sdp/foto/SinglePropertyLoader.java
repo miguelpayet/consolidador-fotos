@@ -15,7 +15,7 @@ public class SinglePropertyLoader {
         Parameters params = new Parameters();
         FileBasedConfigurationBuilder<FileBasedConfiguration> builder =
                 new FileBasedConfigurationBuilder<FileBasedConfiguration>(PropertiesConfiguration.class)
-                        .configure(params.properties().setFileName("consolidador.properties"));
+                        .configure(params.properties().setFileName("./consolidador.properties"));
         try {
             configuration = builder.getConfiguration();
         } catch (ConfigurationException e) {

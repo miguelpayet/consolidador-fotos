@@ -33,7 +33,6 @@ public class ExtractorFechaJpg extends ExtractorFecha {
     }
 
     public LocalDate extraerFecha() throws FotoException {
-
         Metadata metadata = new Metadata();
         ParseContext context = new ParseContext();
         LocalDate fecha = null;
@@ -44,9 +43,12 @@ public class ExtractorFechaJpg extends ExtractorFecha {
             if (fechaExif == null) {
                 throw new FotoException("fechaExif es nulo");
             }
+            if (fechaExif.equals("")) {
+                throw new FotoException("fechaExif en blanco");
+            }
             LocalDateTime localDateTime = LocalDateTime.parse(fechaExif, FORMATTER);
             fecha = localDateTime.toLocalDate();
-        } catch (IOException | SAXException | TikaException e) {
+        } catch (Exception e) {
             throw new FotoException(String.format("error al leer imagen - %s", e.getMessage()));
         }
         return fecha;

@@ -1,22 +1,24 @@
 package pe.net.sdp.foto;
 
 import dev.brachtendorf.jimagehash.hash.Hash;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Consolidador {
 
     private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
     private List<Foto> cambios;
+    private final ExecutorService executorService;
     private final Map<Long, Foto> fotos;
     private final ArrayList<ArrayList<Foto>> fotosLimpias;
     private long iguales = 0;
@@ -29,6 +31,7 @@ public class Consolidador {
         this.fotos = new HashMap<>();
         this.fotosLimpias = new ArrayList<>();
         this.rutaDestino = rutaDestino;
+        this.executorService = Executors.newFixedThreadPool(8);
     }
 
     public void consolidar() {
@@ -36,25 +39,36 @@ public class Consolidador {
         while (iteratorExterno.hasNext()) {
             Map.Entry<Long, Foto> entryExterno = iteratorExterno.next();
             Foto fotoExterna = entryExterno.getValue();
-            if (fotoExterna != null) {
+            if (fotoExterna == null) {
+                iteratorExterno.remove();
+            } else {
                 Hash entryExternoHash = entryExterno.getValue().getImageHash();
                 ArrayList<Foto> listaFoto = new ArrayList<>(1);
                 listaFoto.add(entryExterno.getValue());
                 fotosLimpias.add(listaFoto);
                 iteratorExterno.remove();
-                for (Map.Entry<Long, Foto> entryInterno : fotos.entrySet()) {
-                    Foto fotoInterna = entryInterno.getValue();
-                    if (fotoInterna != null) {
-                        double similarityScore = entryExternoHash.normalizedHammingDistance(fotoInterna.getImageHash());
-                        if (similarityScore < 0.111) {
-                            iguales++;
-                            listaFoto.add(fotoInterna);
-                            entryInterno.setValue(null);
-                        }
-                    }
+                if (entryExternoHash != null) {
+                    consolidarIguales(entryExternoHash, listaFoto);
                 }
-            } else {
-                iteratorExterno.remove();
+            }
+        }
+    }
+
+    private void consolidarIguales(Hash entryExternoHash, ArrayList<Foto> listaFoto) {
+        for (Map.Entry<Long, Foto> entry : fotos.entrySet()) {
+            Foto fotoInterna = entry.getValue();
+            if (fotoInterna != null) {
+                double similarityScore;
+                if (fotoInterna.getImageHash() == null) {
+                    similarityScore = 1;
+                } else {
+                    similarityScore = entryExternoHash.normalizedHammingDistance(fotoInterna.getImageHash());
+                }
+                if (similarityScore < 0.111) {
+                    iguales++;
+                    listaFoto.add(fotoInterna);
+                    entry.setValue(null);
+                }
             }
         }
     }
@@ -118,7 +132,6 @@ public class Consolidador {
     }
 
     private void procesarDestinoConjunto(List<Foto> listaFotos) {
-        LocalDate fechaRuta;
         String nombreRuta;
         List<Foto> listaElegida;
         List<Foto> fechas = listaFotos.stream().filter(f -> f.getFechaCreacion() != Foto.FECHA_DEFAULT).sorted(Comparator.comparing(Foto::getFechaCreacion)).toList();
@@ -137,20 +150,25 @@ public class Consolidador {
     }
 
     public void realizarCambios() {
+        List<Callable<Void>> tasks = new ArrayList<>();
         for (Foto foto : cambios) {
-            try {
-                String directorio = new File(foto.getArchivoDestino()).getParent();
-                File dir = new File(directorio);
-                if (!dir.exists()) {
-                    FileUtils.forceMkdir(new File(directorio));
+            Callable<Void> cv = () -> {
+                try {
+                    Actualizador actualizador = new Actualizador(foto);
+                    actualizador.actualizar();
+                } catch (IOException e) {
+                    LOGGER.error("error al realizar cambio - {}", foto.getArchivoOrigen(), e);
                 }
-                Actualizador actualizador = new Actualizador(foto);
-                actualizador.actualizar();
-            } catch (IOException e) {
-                LOGGER.info("error al realizar cambio - {}", foto.getArchivoOrigen());
-                e.printStackTrace(System.out);
-            }
+                return null;
+            };
+            tasks.add(cv);
         }
+        try {
+            executorService.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            LOGGER.info("error de interrupción de hilo");
+        }
+        executorService.shutdown();
     }
 
     public void registrarFoto(Foto foto) {

@@ -21,7 +21,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.stream.Stream;
 
-
 public class Foto {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/dd");
@@ -65,9 +64,6 @@ public class Foto {
                         LOGGER.error("hilo interrumpido - {}", e.getMessage());
                     }
                 });
-        if (imageHash == null) {
-            throw new FotoException("error al calcular hash de imagen");
-        }
     }
 
     private Runnable calcularFechaCreacion(byte[] fileBytes) {
@@ -128,6 +124,10 @@ public class Foto {
 
     public int getTipo() {
         return tipo;
+    }
+
+    public void setArchivoDestino(String archivoDestino) {
+        this.archivoDestino = archivoDestino;
     }
 
     public void setRutaArchivoDestino(String unDirectorioDestino) {

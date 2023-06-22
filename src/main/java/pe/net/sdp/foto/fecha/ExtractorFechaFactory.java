@@ -20,6 +20,7 @@ public class ExtractorFechaFactory {
         CLASES.put("HEIC", ExtractorFechaJpg.class);
         CLASES.put("JPEG", ExtractorFechaJpg.class);
         CLASES.put("JPG", ExtractorFechaJpg.class);
+        CLASES.put("NEF", ExtractorFechaJpg.class);
         CLASES.put("TIF", ExtractorFechaTIFF.class);
         CLASES.put("TIFF", ExtractorFechaTIFF.class);
     }
