@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.stream.Stream;
 
 public class Foto {
 
@@ -27,6 +26,7 @@ public class Foto {
     public static final int DESTINO = 2;
     public static final LocalDate FECHA_DEFAULT = LocalDate.of(1990, 1, 1);
     private static final XXHashFactory HASH_FACTORY = XXHashFactory.fastestInstance();
+    private static final XXHash64 HASH_INSTANCE = HASH_FACTORY.hash64();
     private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
     public static final int ORIGEN = 1;
     private String archivoDestino = null;
@@ -36,13 +36,11 @@ public class Foto {
     private long fileHash = 0;
     private Hash imageHash = null;
     private final int tipo;
-    private final XXHash64 xxHash64;
 
-    public Foto(String unArchivo, int tipo) throws FotoException {
-        this.archivoOrigen = unArchivo;
-        this.extension = FilenameUtils.getExtension(archivoOrigen);
-        this.tipo = tipo;
-        this.xxHash64 = HASH_FACTORY.hash64();
+    public Foto(String unArchivo, int unTipo) throws FotoException {
+        archivoOrigen = unArchivo;
+        extension = FilenameUtils.getExtension(archivoOrigen);
+        tipo = unTipo;
         calcularDatosFoto();
     }
 
@@ -54,52 +52,47 @@ public class Foto {
         } catch (IOException e) {
             throw new FotoException(String.format("Excepción al abrir %s", archivoOrigen), e);
         }
-        Stream.of(calcularFechaCreacion(fileBytes), calcularImageHash(fileBytes, extension), calcularFileHash(fileBytes))
-                .map(Thread::new)
-                .peek(Thread::start)
-                .forEachOrdered(thread -> {
-                    try {
-                        thread.join();
-                    } catch (InterruptedException e) {
-                        LOGGER.error("hilo interrumpido - {}", e.getMessage());
-                    }
-                });
+        try {
+            calcularFechaCreacion(fileBytes);
+            calcularImageHash(fileBytes, extension);
+            calcularFileHash(fileBytes);
+        } catch (Exception e) {
+            LOGGER.error("error al calcular datos foto", e);
+        }
     }
 
-    private Runnable calcularFechaCreacion(byte[] fileBytes) {
-        return () -> {
-            try {
-                ByteArrayInputStream bais = new ByteArrayInputStream(fileBytes);
-                ExtractorFecha extractor = ExtractorFechaFactory.getExtractor(archivoOrigen, bais);
-                if (extractor != null) {
-                    fechaCreacion = extractor.extraerFecha();
-                }
-            } catch (FotoException e) {
+    private void calcularFechaCreacion(byte[] fileBytes) {
+        try {
+            ByteArrayInputStream bais = new ByteArrayInputStream(fileBytes);
+            ExtractorFecha extractor = ExtractorFechaFactory.getExtractor(archivoOrigen, bais);
+            if (extractor != null) {
+                fechaCreacion = extractor.extraerFecha();
+            }
+            if (fechaCreacion == null) {
                 fechaCreacion = FECHA_DEFAULT;
             }
-        };
+        } catch (FotoException e) {
+            fechaCreacion = FECHA_DEFAULT;
+        }
     }
 
-    private Runnable calcularFileHash(byte[] fileBytes) {
-        return () -> {
-            fileHash = xxHash64.hash(fileBytes, 0, fileBytes.length, 6839245178L);
-        };
+    private void calcularFileHash(byte[] fileBytes) {
+        fileHash = HASH_INSTANCE.hash(fileBytes, 0, fileBytes.length, 6839245178L);
     }
 
-    private Runnable calcularImageHash(byte[] fileBytes, String extension) {
-        return () -> {
-            if (!extension.equals("HEIC")) {
-                ByteArrayInputStream bais = new ByteArrayInputStream(fileBytes);
-                BufferedImage bufferedImage = null;
-                try {
-                    bufferedImage = ImageIO.read(bais);
-                    HashingAlgorithm hasher = new PerceptiveHash(32);
-                    imageHash = hasher.hash(bufferedImage);
-                } catch (IOException | IllegalArgumentException e) {
-                    imageHash = null;
-                }
+    private void calcularImageHash(byte[] fileBytes, String extension) {
+        imageHash = null;
+        if (!extension.equals("HEIC")) {
+            ByteArrayInputStream bais = new ByteArrayInputStream(fileBytes);
+            BufferedImage bufferedImage;
+            try {
+                bufferedImage = ImageIO.read(bais);
+                HashingAlgorithm hasher = new PerceptiveHash(32);
+                imageHash = hasher.hash(bufferedImage);
+            } catch (IOException | IllegalArgumentException e) {
+                LOGGER.debug("error al calcular hash {}", getArchivoOrigen());
             }
-        };
+        }
     }
 
     public String getArchivoDestino() {

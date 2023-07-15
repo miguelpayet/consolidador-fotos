@@ -17,12 +17,12 @@ public class ExtractorFechaFactory {
 
     static {
         CLASES = new HashMap<>(5);
-        CLASES.put("HEIC", ExtractorFechaJpg.class);
+        CLASES.put("HEIC", ExtractorFechaHeic.class);
         CLASES.put("JPEG", ExtractorFechaJpg.class);
         CLASES.put("JPG", ExtractorFechaJpg.class);
         CLASES.put("NEF", ExtractorFechaJpg.class);
-        CLASES.put("TIF", ExtractorFechaTIFF.class);
-        CLASES.put("TIFF", ExtractorFechaTIFF.class);
+        CLASES.put("TIF", ExtractorFechaJpg.class);
+        CLASES.put("TIFF", ExtractorFechaJpg.class);
     }
 
     public static ExtractorFecha getExtractor(String unNombreArchivo, ByteArrayInputStream unStream) throws FotoException {

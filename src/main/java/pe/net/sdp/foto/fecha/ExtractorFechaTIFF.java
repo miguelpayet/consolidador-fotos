@@ -27,9 +27,9 @@ public class ExtractorFechaTIFF extends ExtractorFecha {
 
     static {
         DESIRED_TAGS = new HashMap<>(3);
-        DESIRED_TAGS.put("Digital Date Created", "yyyy:MM:dd");
-        DESIRED_TAGS.put("Date Created", "yyyy:MM:dd");
         DESIRED_TAGS.put("exif:DateTimeOriginal", "yyyy-MM-dd'T'HH:mm:ss");
+        DESIRED_TAGS.put("Date Created", "yyyy:MM:dd");
+        DESIRED_TAGS.put("Digital Date Created", "yyyy:MM:dd");
         DESIRED_TAGS.put("xmpMM:History:When", "yyyy-MM-dd'T'HH:mm:ss'Z'");
     }
 

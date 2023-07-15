@@ -78,17 +78,22 @@ public class Actualizador {
     }
 
     private String obtenerNombreDirectorioUnico(String unDirectorioDestino) {
-        int lastSlashIndex = unDirectorioDestino.lastIndexOf("/");
-        int posicion = 0;
         File dirDestino = new File(unDirectorioDestino);
-        while (dirDestino.exists() && !dirDestino.isDirectory()) {
-            String formattedNumber = String.format("%02d", ++posicion);
-            if (lastSlashIndex > 0) {
-                unDirectorioDestino = unDirectorioDestino.substring(0, lastSlashIndex) + "-" + formattedNumber + unDirectorioDestino.substring(lastSlashIndex);
-            } else {
-                unDirectorioDestino = unDirectorioDestino + "-" + formattedNumber;
-            }
+        while (dirDestino.exists()) {
+            unDirectorioDestino = obtenerSiguienteNombreDirectorio(unDirectorioDestino);
             dirDestino = new File(unDirectorioDestino);
+        }
+        return unDirectorioDestino;
+    }
+
+    private String obtenerSiguienteNombreDirectorio(String unDirectorioDestino) {
+        int posicion = 0;
+        String numeroFormateado = String.format("%02d", ++posicion);
+        int ultimoSlash = unDirectorioDestino.lastIndexOf("/");
+        if (ultimoSlash > 0) {
+            unDirectorioDestino = unDirectorioDestino.substring(0, ultimoSlash) + "-" + numeroFormateado + unDirectorioDestino.substring(ultimoSlash);
+        } else {
+            unDirectorioDestino = unDirectorioDestino + "-" + numeroFormateado;
         }
         return unDirectorioDestino;
     }

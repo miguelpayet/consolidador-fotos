@@ -40,7 +40,6 @@ public class Runner {
         consolidador.imprimirCuentas();
         consolidador.identificarCambios();
         consolidador.realizarCambios();
-        consolidador.listarCambios();
         LOGGER.info("final");
     }
 }
