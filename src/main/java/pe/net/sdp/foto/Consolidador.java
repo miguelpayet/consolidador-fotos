@@ -6,50 +6,53 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class Consolidador {
 
     private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
-    private List<Foto> cambios;
-    private final DetectorArchivosRepetidos detectorRepetidos;
+    private static final double SIMILARITY_THRESHOLD = 0.0834;
+    private final Map<Hash, ArrayList<Foto>> fotosConsolidadas;
+    private final Map<Long, Foto> fotosLeidas;
+    private final GeneradorRutasUnicas generadorRutas;
+    private long total = 0;
     private long iguales = 0;
-    private final ArrayList<Foto> listafotos;
-    private Map<Hash, ArrayList<Foto>> mapaFotos;
     private long repetidas = 0;
     private final String rutaDestino;
-    private long total = 0;
+    private final String rutaOrigen;
 
-    public Consolidador(String unaRutaDestino) {
-        cambios = new ArrayList<>();
-        detectorRepetidos = new DetectorArchivosRepetidos();
-        listafotos = new ArrayList<>();
-        mapaFotos = new HashMap<>();
+    public Consolidador(String unaRutaOrigen, String unaRutaDestino) {
+        fotosConsolidadas = new HashMap<>();
+        fotosLeidas = new HashMap<>();
         rutaDestino = unaRutaDestino;
+        rutaOrigen = unaRutaOrigen;
+        generadorRutas = new GeneradorRutasUnicas();
     }
 
     public void consolidar() {
-        Iterator<Foto> iterator = listafotos.iterator();
+        ArrayList<Foto> listaFotos = new ArrayList<>(fotosLeidas.values());
+        Iterator<Foto> iterator = listaFotos.iterator();
         while (iterator.hasNext()) {
-            Foto laFoto = iterator.next();
-            ArrayList<Foto> lasFotos = new ArrayList<>(1);
-            mapaFotos.put(laFoto.getImageHash(), lasFotos);
+            Foto foto = iterator.next();
+            ArrayList<Foto> fotos = new ArrayList<>(List.of(foto));
+            fotosConsolidadas.put(foto.getImageHash(), fotos);
             iterator.remove();
-            Hash hashLaFoto = laFoto.getImageHash();
+            Hash hashLaFoto = foto.getImageHash();
             ArrayList<Foto> fotosCopiadas = new ArrayList<>(1);
-            for (Foto fotoCandidata : listafotos) {
+            for (Foto fotoCandidata : listaFotos) {
                 double similarityScore = hashLaFoto.normalizedHammingDistance(fotoCandidata.getImageHash());
-                if (similarityScore < 0.083) {
+                LOGGER.debug("{} vs {} - {}", foto.getArchivoOrigen(), fotoCandidata.getArchivoOrigen(), similarityScore);
+                if (similarityScore < SIMILARITY_THRESHOLD) {
                     iguales++;
-                    lasFotos.add(fotoCandidata);
+                    fotos.add(fotoCandidata);
                     fotosCopiadas.add(fotoCandidata);
                 }
             }
-            listafotos.removeAll(fotosCopiadas);
-            iterator = listafotos.iterator();
+            listaFotos.removeAll(fotosCopiadas);
+            iterator = listaFotos.iterator();
         }
     }
 
@@ -57,16 +60,24 @@ public class Consolidador {
         return rutaDestino;
     }
 
-    public void identificarCambios() {
-        cambios = mapaFotos.values()
-                .stream()
-                .flatMap(List::stream)
-                .filter(f -> !f.getArchivoOrigen().equals(f.getArchivoDestino())).toList();
-        LOGGER.info("cantidad de cambios: {}", cambios.size());
-    }
-
     public void imprimirCuentas() {
         LOGGER.info("files: {}, iguales: {}, repetidas: {}", total, iguales, repetidas);
+    }
+
+    public void leerArchivos() {
+        Visitador pf = new Visitador(this);
+        pf.setTipoFoto(Foto.DESTINO);
+        try {
+            Files.walkFileTree(Path.of(rutaDestino), pf);
+        } catch (IOException e) {
+            LOGGER.error("error al leer ruta destino {}", e.getMessage());
+        }
+        pf.setTipoFoto(Foto.ORIGEN);
+        try {
+            Files.walkFileTree(Path.of(rutaOrigen), pf);
+        } catch (IOException e) {
+            LOGGER.error("error al leer ruta destino {}", e.getMessage());
+        }
     }
 
     public void leerFoto(Path filePath, int tipoFoto) {
@@ -86,71 +97,68 @@ public class Consolidador {
         }
     }
 
-    public void listarCambios() {
-        for (Foto foto : cambios) {
-            if (foto.getTipo() == Foto.ORIGEN) {
-                LOGGER.info(String.format("copiar %s -> %s", foto.getArchivoOrigen(), foto.getArchivoDestino()));
+    public void procesar() {
+        for (List<Foto> fotos : fotosConsolidadas.values()) {
+            if (fotos.size() == 1) {
+                procesarDestinoUnico(fotos);
             } else {
-                LOGGER.info(String.format("mover %s -> %s", foto.getArchivoOrigen(), foto.getArchivoDestino()));
+                procesarDestinoConjunto(fotos);
             }
         }
     }
 
-    public void listarFechas() {
-        List<LocalDate> listaFechas = cambios.stream().map(Foto::getFechaCreacion).distinct().sorted().toList();
-        for (LocalDate fecha : listaFechas) {
-            LOGGER.info(fecha.toString());
-        }
-    }
-
-    public void procesar() {
-        for (List<Foto> listaFotos : mapaFotos.values()) {
-            if (listaFotos.size() == 1) {
-                procesarDestinoUnico(listaFotos);
-            } else {
-                procesarDestinoConjunto(listaFotos);
+    private void procesarActualizacion(Foto f) {
+        if (f.haCambiado()) {
+            Actualizador actualizador = new Actualizador(f);
+            try {
+                actualizador.actualizar();
+            } catch (IOException e) {
+                LOGGER.error("error al actualizar {} -> {}", f.getArchivoOrigen(), f.getArchivoDestino(), e);
             }
         }
     }
 
     private void procesarDestinoConjunto(List<Foto> listaFotos) {
-        String nombreRuta;
-        List<Foto> listaElegida;
-        List<Foto> fechas = listaFotos.stream().filter(f -> f.getFechaCreacion() != Foto.FECHA_DEFAULT).sorted(Comparator.comparing(Foto::getFechaCreacion)).toList();
+        List<Foto> fechas = listaFotos.stream()
+                .filter(f -> f.getFechaCreacion() != Foto.FECHA_DEFAULT)
+                .sorted(Comparator.comparing(Foto::getFechaCreacion))
+                .toList();
+        Iterator<Foto> iterator;
         if (fechas.size() > 0) {
-            listaElegida = fechas;
+            iterator = fechas.iterator();
         } else {
-            listaElegida = listaFotos;
+            iterator = listaFotos.iterator();
         }
-        nombreRuta = FilenameUtils.getName(listaElegida.get(0).getArchivoOrigen());
-        String rutaFecha = listaElegida.get(0).getFechaCreacion().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-        listaFotos.forEach(f -> f.setRutaArchivoDestino(String.format("%s/%s/%s", rutaDestino, rutaFecha, nombreRuta)));
+        if (iterator.hasNext()) {
+            Foto foto = iterator.next();
+            String nombreRuta = FilenameUtils.getName(foto.getArchivoOrigen());
+            String rutaFecha = foto.getFechaCreacion().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            String rutaFinal = String.format("%s/%s/%s", rutaDestino, rutaFecha, nombreRuta);
+            rutaFinal = generadorRutas.obtenerNombreDirectorioUnico(rutaFinal);
+            for (Foto f : listaFotos) {
+                f.setRutaArchivoDestino(rutaFinal);
+                f.setArchivoDestino(generadorRutas.obtenerNombreArchivoUnico(f.getArchivoDestino()));
+                procesarActualizacion(f);
+            }
+        }
     }
 
-    private void procesarDestinoUnico(List<Foto> foto) {
-        foto.forEach(f -> f.setRutaFechaArchivoDestino(getRutaDestino()));
-    }
-
-    public void realizarCambios() {
-        long total = 0;
-        for (Foto foto : cambios) {
-            if (++total % 100 == 0) {
-                LOGGER.info(String.format("operaciones realizadas: %d", total));
-            }
-            try {
-                Actualizador actualizador = new Actualizador(foto);
-                actualizador.actualizar();
-            } catch (IOException e) {
-                LOGGER.error("error al realizar cambio - {}", foto.getArchivoOrigen(), e);
-            }
+    private void procesarDestinoUnico(List<Foto> listaFotos) {
+        Iterator<Foto> iterator = listaFotos.iterator();
+        if (iterator.hasNext()) {
+            Foto f = iterator.next();
+            f.setRutaFechaArchivoDestino(getRutaDestino());
+            f.setArchivoDestino(generadorRutas.obtenerNombreArchivoUnico(f.getArchivoDestino()));
+            procesarActualizacion(f);
         }
     }
 
     public void registrarFoto(Foto unaFoto) {
-        if (detectorRepetidos.esRepetido(unaFoto)) {
+        if (fotosLeidas.containsKey(unaFoto.getFileHash())) {
             repetidas++;
         } else {
-            listafotos.add(unaFoto);
+            fotosLeidas.put(unaFoto.getFileHash(), unaFoto);
         }
     }
+
 }

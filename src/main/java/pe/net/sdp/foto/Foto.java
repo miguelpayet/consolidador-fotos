@@ -119,6 +119,10 @@ public class Foto {
         return tipo;
     }
 
+    public boolean haCambiado() {
+        return !archivoOrigen.equals(archivoDestino);
+    }
+
     public void setArchivoDestino(String archivoDestino) {
         this.archivoDestino = archivoDestino;
     }
