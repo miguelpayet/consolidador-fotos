@@ -47,7 +47,7 @@ public class GeneradorRutasUnicas {
         String regex = "^(.*\\-)[0-9]*$";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(unDirectorioDestino);
-        if (matcher.matches()) {
+        if (matcher.matches() && matcher.groupCount() == 2) {
             int numero = Integer.parseInt(matcher.group(2)) + 1;
             unDirectorioDestino = String.format("%s%02d", matcher.group(1), numero);
         } else {
