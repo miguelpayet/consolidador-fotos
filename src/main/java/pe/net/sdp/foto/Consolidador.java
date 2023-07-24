@@ -18,11 +18,11 @@ public class Consolidador {
     private final Map<Hash, ArrayList<Foto>> fotosConsolidadas;
     private final Map<Long, Foto> fotosLeidas;
     private final GeneradorRutasUnicas generadorRutas;
-    private long total = 0;
     private long iguales = 0;
     private long repetidas = 0;
     private final String rutaDestino;
     private final String rutaOrigen;
+    private long total = 0;
 
     public Consolidador(String unaRutaOrigen, String unaRutaDestino) {
         fotosConsolidadas = new HashMap<>();
@@ -43,7 +43,10 @@ public class Consolidador {
             Hash hashLaFoto = foto.getImageHash();
             ArrayList<Foto> fotosCopiadas = new ArrayList<>(1);
             for (Foto fotoCandidata : listaFotos) {
-                double similarityScore = hashLaFoto.normalizedHammingDistance(fotoCandidata.getImageHash());
+                double similarityScore = 1;
+                if (hashLaFoto != null && fotoCandidata.getImageHash() != null) {
+                    similarityScore = hashLaFoto.normalizedHammingDistance(fotoCandidata.getImageHash());
+                }
                 LOGGER.debug("{} vs {} - {}", foto.getArchivoOrigen(), fotoCandidata.getArchivoOrigen(), similarityScore);
                 if (similarityScore < SIMILARITY_THRESHOLD) {
                     iguales++;
@@ -85,7 +88,7 @@ public class Consolidador {
         String extension = FilenameUtils.getExtension(filePath.toString());
         if (ExtensionesImagen.esImagen(extension)) {
             total++;
-            if (total % 2 == 0) {
+            if (total % Runner.CADA_CUANTOS == 0) {
                 imprimirCuentas();
             }
             try {
