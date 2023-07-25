@@ -28,14 +28,14 @@ public class GeneradorRutasUnicas {
 
     private String obtenerSiguienteNombreArchivo(String unArchivoDestino) {
         String baseName = FilenameUtils.getBaseName(unArchivoDestino);
-        String directorioDestino = FilenameUtils.getFullPath(unArchivoDestino);
+        String directorioDestino = quitarUltimoSlash(FilenameUtils.getFullPath(unArchivoDestino));
         String extension = FilenameUtils.getExtension(unArchivoDestino);
-        String regex = "^(.*\\-)([0-9]*)(\\..*)$";
+        String regex = "^(.*\\-)([0-9]*)$";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(baseName);
         if (matcher.matches()) {
             int numero = Integer.parseInt(matcher.group(2)) + 1;
-            unArchivoDestino = String.format("%s/%s%02d%s", directorioDestino, matcher.group(1), numero, matcher.group(3));
+            unArchivoDestino = String.format("%s/%s%02d.%s", directorioDestino, matcher.group(1), numero, extension);
         } else {
             unArchivoDestino = String.format("%s/%s-%02d.%s", directorioDestino, baseName, 1, extension);
         }
@@ -44,7 +44,7 @@ public class GeneradorRutasUnicas {
 
     private String obtenerSiguienteNombreDirectorio(String unDirectorioDestino) {
         unDirectorioDestino = quitarUltimoSlash(unDirectorioDestino);
-        String regex = "^(.*\\-)[0-9]*$";
+        String regex = "^(.*\\-)([0-9]*)$";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(unDirectorioDestino);
         if (matcher.matches() && matcher.groupCount() == 2) {

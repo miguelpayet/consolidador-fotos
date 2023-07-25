@@ -15,6 +15,7 @@ public class Consolidador {
 
     private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
     private static final double SIMILARITY_THRESHOLD = 0.0834;
+    private long filtradas = 0;
     private final Map<Hash, ArrayList<Foto>> fotosConsolidadas;
     private final Map<Long, Foto> fotosLeidas;
     private final GeneradorRutasUnicas generadorRutas;
@@ -57,6 +58,11 @@ public class Consolidador {
             listaFotos.removeAll(fotosCopiadas);
             iterator = listaFotos.iterator();
         }
+        imprimirCuentas();
+    }
+
+    private boolean contienePalabraFiltrada(String unFilename) {
+        return Arrays.stream(Runner.FILTRAR).anyMatch(unFilename::contains);
     }
 
     public String getRutaDestino() {
@@ -64,7 +70,7 @@ public class Consolidador {
     }
 
     public void imprimirCuentas() {
-        LOGGER.info("files: {}, iguales: {}, repetidas: {}", total, iguales, repetidas);
+        LOGGER.info("files: {}, iguales: {}, repetidas: {}, filtradas: {}", total, iguales, repetidas, filtradas);
     }
 
     public void leerArchivos() {
@@ -91,11 +97,15 @@ public class Consolidador {
             if (total % Runner.CADA_CUANTOS == 0) {
                 imprimirCuentas();
             }
-            try {
-                Foto foto = new Foto(filename, tipoFoto);
-                registrarFoto(foto);
-            } catch (FotoException e) {
-                LOGGER.error("error al procesar {} - {}", filename, e.getMessage());
+            if (!contienePalabraFiltrada(filename)) {
+                try {
+                    Foto foto = new Foto(filename, tipoFoto);
+                    registrarFoto(foto);
+                } catch (FotoException e) {
+                    LOGGER.error("error al procesar {} - {}", filename, e.getMessage());
+                }
+            } else {
+                filtradas++;
             }
         }
     }
