@@ -16,6 +16,8 @@ public class Consolidador {
     private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
     private static final double SIMILARITY_THRESHOLD = 0.0834;
     private long filtradas = 0;
+    private final Filtro filtroFiltrados;
+    private final Filtro filtroThumbnails;
     private final Map<Hash, ArrayList<Foto>> fotosConsolidadas;
     private final Map<Long, Foto> fotosLeidas;
     private final GeneradorRutasUnicas generadorRutas;
@@ -23,14 +25,18 @@ public class Consolidador {
     private long repetidas = 0;
     private final String rutaDestino;
     private final String rutaOrigen;
+    private final List<String> thumbnails;
     private long total = 0;
 
     public Consolidador(String unaRutaOrigen, String unaRutaDestino) {
+        filtroFiltrados = new Filtro(Configuracion.REGEX_FILTRAR);
+        filtroThumbnails = new Filtro(Configuracion.REGEX_THUMBNAILS);
         fotosConsolidadas = new HashMap<>();
         fotosLeidas = new HashMap<>();
+        generadorRutas = new GeneradorRutasUnicas();
         rutaDestino = unaRutaDestino;
         rutaOrigen = unaRutaOrigen;
-        generadorRutas = new GeneradorRutasUnicas();
+        thumbnails = new ArrayList<>();
     }
 
     public void consolidar() {
@@ -61,8 +67,12 @@ public class Consolidador {
         imprimirCuentas();
     }
 
-    private boolean contienePalabraFiltrada(String unFilename) {
-        return Arrays.stream(Runner.FILTRAR).anyMatch(unFilename::contains);
+    private boolean esFiltrado(String unFilename) {
+        return Arrays.stream(Configuracion.FILTRAR).anyMatch(unFilename::contains) || filtroFiltrados.estaFiltrado(unFilename);
+    }
+
+    private boolean esThumbnail(String unFilename) {
+        return filtroThumbnails.estaFiltrado(unFilename);
     }
 
     public String getRutaDestino() {
@@ -70,7 +80,8 @@ public class Consolidador {
     }
 
     public void imprimirCuentas() {
-        LOGGER.info("files: {}, iguales: {}, repetidas: {}, filtradas: {}", total, iguales, repetidas, filtradas);
+        LOGGER.info("files: {}, iguales: {}, repetidas: {}, filtradas: {}, thumbnails: {}",
+                total, iguales, repetidas, filtradas, thumbnails.size());
     }
 
     public void leerArchivos() {
@@ -93,24 +104,28 @@ public class Consolidador {
         String filename = filePath.toString();
         String extension = FilenameUtils.getExtension(filePath.toString());
         if (ExtensionesImagen.esImagen(extension)) {
-            total++;
-            if (total % Runner.CADA_CUANTOS == 0) {
+            if (++total % Configuracion.CADA_CUANTOS == 0) {
                 imprimirCuentas();
             }
-            if (!contienePalabraFiltrada(filename)) {
+            if (esFiltrado(filename)) {
+                filtradas++;
+            } else {
                 try {
                     Foto foto = new Foto(filename, tipoFoto);
-                    registrarFoto(foto);
+                    if (esThumbnail(filename) && foto.getFechaCreacion() == Foto.FECHA_DEFAULT)
+                        thumbnails.add(filename);
+                    else {
+                        registrarFoto(foto);
+                    }
                 } catch (FotoException e) {
                     LOGGER.error("error al procesar {} - {}", filename, e.getMessage());
                 }
-            } else {
-                filtradas++;
             }
         }
     }
 
     public void procesar() {
+        LOGGER.info("procesar fotos");
         for (List<Foto> fotos : fotosConsolidadas.values()) {
             if (fotos.size() == 1) {
                 procesarDestinoUnico(fotos);
@@ -118,11 +133,15 @@ public class Consolidador {
                 procesarDestinoConjunto(fotos);
             }
         }
+        LOGGER.info("procesar thumbnails");
+        for (String archivo : thumbnails) {
+            procesarThumbnail(archivo);
+        }
     }
 
     private void procesarActualizacion(Foto f) {
         if (f.haCambiado()) {
-            Actualizador actualizador = new Actualizador(f);
+            ActualizadorFoto actualizador = new ActualizadorFoto(f);
             try {
                 actualizador.actualizar();
             } catch (IOException e) {
@@ -163,6 +182,16 @@ public class Consolidador {
             f.setRutaFechaArchivoDestino(getRutaDestino());
             f.setArchivoDestino(generadorRutas.obtenerNombreArchivoUnico(f.getArchivoDestino()));
             procesarActualizacion(f);
+        }
+    }
+
+    private void procesarThumbnail(String unArchivo) {
+        String archivoDestino = String.format("%s/%s", Configuracion.RUTA_THUMBNAILS, FilenameUtils.getName(unArchivo));
+        ActualizadorArchivo actualizador = new ActualizadorArchivo(unArchivo, generadorRutas.obtenerNombreArchivoUnico(archivoDestino));
+        try {
+            actualizador.actualizar();
+        } catch (IOException e) {
+            LOGGER.error("error al actualizar thumbnail {} -> {}", unArchivo, archivoDestino, e);
         }
     }
 

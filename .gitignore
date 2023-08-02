@@ -28,6 +28,7 @@
 /nbdist/
 /nbproject/private/
 /output*
+/thumbnails*
 :wqfotos*/
 build/
 consolidador.log

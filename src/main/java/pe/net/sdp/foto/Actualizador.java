@@ -12,44 +12,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-public class Actualizador {
+public abstract class Actualizador {
 
-    private static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
-    private final Foto foto;
+    protected static final Logger LOGGER = LogManager.getLogger(Foto.class.getName());
 
-    public Actualizador(Foto unaFoto) {
-        foto = unaFoto;
-    }
+    public abstract void actualizar() throws IOException;
 
-    public void actualizar() throws IOException {
-        if (foto.getTipo() == Foto.ORIGEN) {
-            copiarArchivo();
-        } else {
-            moverArchivo();
-        }
-    }
-
-    private void copiarArchivo() throws IOException {
-        crearDirectorio();
+    protected void copiarArchivo(String unArchivoOrigen, String unArchivoDestino) throws IOException {
+        crearDirectorio(unArchivoDestino);
         try {
-            Files.copy(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()), StandardCopyOption.COPY_ATTRIBUTES);
+            Files.copy(Path.of(unArchivoOrigen), Path.of(unArchivoDestino), StandardCopyOption.COPY_ATTRIBUTES);
         } catch (FileAlreadyExistsException e) {
-            LOGGER.error("archivo ya existe {} -> {}", foto.getArchivoOrigen(), foto.getArchivoDestino(), e);
+            LOGGER.error("archivo ya existe {} -> {}", unArchivoOrigen, unArchivoDestino, e);
         }
     }
 
-    private void crearDirectorio() throws IOException {
-        String directorioDestino = FilenameUtils.getFullPath(foto.getArchivoDestino());
+    protected void crearDirectorio(String unArchivo) throws IOException {
+        String directorioDestino = FilenameUtils.getFullPath(unArchivo);
         File dir = new File(directorioDestino);
         if (!dir.exists()) {
             FileUtils.forceMkdir(dir);
         }
     }
-
-    private void moverArchivo() throws IOException {
-        crearDirectorio();
-        Files.move(Path.of(foto.getArchivoOrigen()), Path.of(foto.getArchivoDestino()));
-    }
-
 
 }
