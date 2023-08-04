@@ -6,6 +6,7 @@
 *.iml
 *.ipr
 *.iws
+*.properties
 .DS_Store
 .apt_generated
 .classpath

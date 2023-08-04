@@ -86,12 +86,14 @@ public class Consolidador {
 
     public void leerArchivos() {
         Visitador pf = new Visitador(this);
+        LOGGER.info("visitando {}", rutaDestino);
         pf.setTipoFoto(Foto.DESTINO);
         try {
             Files.walkFileTree(Path.of(rutaDestino), pf);
         } catch (IOException e) {
             LOGGER.error("error al leer ruta destino {}", e.getMessage());
         }
+        LOGGER.info("visitando {}", rutaOrigen);
         pf.setTipoFoto(Foto.ORIGEN);
         try {
             Files.walkFileTree(Path.of(rutaOrigen), pf);
