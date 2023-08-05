@@ -11,7 +11,8 @@ public class Runner {
         LOGGER.info("inicio");
         Configuracion.leerConfiguracion();
         Consolidador consolidador = new Consolidador(Configuracion.RUTA_ORIGEN, Configuracion.RUTA_DESTINO);
-        consolidador.leerArchivos();
+        LectorArchivos lector = new LectorArchivos(consolidador);
+        lector.leerArchivos();
         consolidador.consolidar();
         consolidador.procesar();
         LOGGER.info("fin");

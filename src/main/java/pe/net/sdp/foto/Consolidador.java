@@ -6,7 +6,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -79,27 +78,13 @@ public class Consolidador {
         return rutaDestino;
     }
 
+    public String getRutaOrigen() {
+        return rutaOrigen;
+    }
+
     public void imprimirCuentas() {
         LOGGER.info("files: {}, iguales: {}, repetidas: {}, filtradas: {}, thumbnails: {}",
                 total, iguales, repetidas, filtradas, thumbnails.size());
-    }
-
-    public void leerArchivos() {
-        Visitador pf = new Visitador(this);
-        LOGGER.info("visitando {}", rutaDestino);
-        pf.setTipoFoto(Foto.DESTINO);
-        try {
-            Files.walkFileTree(Path.of(rutaDestino), pf);
-        } catch (IOException e) {
-            LOGGER.error("error al leer ruta destino {}", e.getMessage());
-        }
-        LOGGER.info("visitando {}", rutaOrigen);
-        pf.setTipoFoto(Foto.ORIGEN);
-        try {
-            Files.walkFileTree(Path.of(rutaOrigen), pf);
-        } catch (IOException e) {
-            LOGGER.error("error al leer ruta destino {}", e.getMessage());
-        }
     }
 
     public void leerFoto(Path filePath, int tipoFoto) {
@@ -124,6 +109,28 @@ public class Consolidador {
                 }
             }
         }
+    }
+
+    private String obtenerRutaDestino(List<Foto> unaListaFotos) {
+        List<String> destinos = unaListaFotos.stream()
+                .filter(f -> f.getTipo() == Foto.DESTINO)
+                .map(f -> FilenameUtils.getFullPath(f.getArchivoDestino()))
+                .toList();
+        String miRutaDestino;
+        if (destinos.size() > 0) {
+            miRutaDestino = destinos.get(0);
+        } else {
+            List<Foto> fotosFechaReal = unaListaFotos.stream()
+                    .filter(f -> f.getFechaCreacion() != Foto.FECHA_DEFAULT)
+                    .sorted(Comparator.comparing(Foto::getFechaCreacion).reversed())
+                    .toList();
+            Foto primeraFoto = fotosFechaReal.isEmpty() ? unaListaFotos.get(0) : fotosFechaReal.get(0);
+            String rutaFecha = primeraFoto.getFechaCreacion().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            String nombreArchivoRaiz = FilenameUtils.getName(primeraFoto.getArchivoOrigen());
+            miRutaDestino = String.format("%s/%s/%s", rutaDestino, rutaFecha, nombreArchivoRaiz);
+            miRutaDestino = generadorRutas.obtenerNombreDirectorioUnico(miRutaDestino);
+        }
+        return miRutaDestino;
     }
 
     public void procesar() {
@@ -152,28 +159,12 @@ public class Consolidador {
         }
     }
 
-    private void procesarDestinoConjunto(List<Foto> listaFotos) {
-        List<Foto> fechas = listaFotos.stream()
-                .filter(f -> f.getFechaCreacion() != Foto.FECHA_DEFAULT)
-                .sorted(Comparator.comparing(Foto::getFechaCreacion))
-                .toList();
-        Iterator<Foto> iterator;
-        if (fechas.size() > 0) {
-            iterator = fechas.iterator();
-        } else {
-            iterator = listaFotos.iterator();
-        }
-        if (iterator.hasNext()) {
-            Foto foto = iterator.next();
-            String nombreRuta = FilenameUtils.getName(foto.getArchivoOrigen());
-            String rutaFecha = foto.getFechaCreacion().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
-            String rutaFinal = String.format("%s/%s/%s", rutaDestino, rutaFecha, nombreRuta);
-            rutaFinal = generadorRutas.obtenerNombreDirectorioUnico(rutaFinal);
-            for (Foto f : listaFotos) {
-                f.setRutaArchivoDestino(rutaFinal);
-                f.setArchivoDestino(generadorRutas.obtenerNombreArchivoUnico(f.getArchivoDestino()));
-                procesarActualizacion(f);
-            }
+    private void procesarDestinoConjunto(List<Foto> unaListaFotos) {
+        String rutaFinal = obtenerRutaDestino(unaListaFotos);
+        for (Foto f : unaListaFotos) {
+            f.setRutaArchivoDestino(rutaFinal);
+            f.setArchivoDestino(generadorRutas.obtenerNombreArchivoUnico(f.getArchivoDestino()));
+            procesarActualizacion(f);
         }
     }
 

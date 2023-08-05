@@ -1,8 +1,7 @@
 package pe.net.sdp.foto;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 public class ActualizadorArchivo extends Actualizador {
 
@@ -19,7 +18,10 @@ public class ActualizadorArchivo extends Actualizador {
     }
 
     private void copiarArchivo() throws IOException {
-        copiarArchivo(archivoOrigen, archivoDestino);
+        File f = new File(archivoDestino);
+        if (!f.exists()) {
+            copiarArchivo(archivoOrigen, archivoDestino);
+        }
     }
 
 }
