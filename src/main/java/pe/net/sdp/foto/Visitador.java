@@ -43,7 +43,7 @@ public class Visitador extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFileFailed(Path file, IOException exc) {
-        System.err.println(exc);
+        LOGGER.error(String.format("%s -> %s", exc.getMessage(), file), exc);
         return CONTINUE;
     }
 }

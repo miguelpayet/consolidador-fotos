@@ -19,6 +19,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class Foto {
 
@@ -52,10 +55,12 @@ public class Foto {
         } catch (IOException e) {
             throw new FotoException(String.format("Excepción al abrir %s", archivoOrigen), e);
         }
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        futures.add(CompletableFuture.runAsync(() -> calcularFechaCreacion(fileBytes)));
+        futures.add(CompletableFuture.runAsync(() -> calcularImageHash(fileBytes, extension)));
+        futures.add(CompletableFuture.runAsync(() -> calcularFileHash(fileBytes)));
         try {
-            calcularFechaCreacion(fileBytes);
-            calcularImageHash(fileBytes, extension);
-            calcularFileHash(fileBytes);
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         } catch (Exception e) {
             LOGGER.error("error al calcular datos foto", e);
         }
