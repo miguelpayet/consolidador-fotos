@@ -114,7 +114,7 @@ public class Consolidador {
     private String obtenerRutaDestino(List<Foto> unaListaFotos) {
         List<String> destinos = unaListaFotos.stream()
                 .filter(f -> f.getTipo() == Foto.DESTINO)
-                .map(f -> FilenameUtils.getFullPath(f.getArchivoDestino()))
+                .map(f -> FilenameUtils.getFullPath(f.getArchivoOrigen()))
                 .toList();
         String miRutaDestino;
         if (destinos.size() > 0) {
