@@ -9,7 +9,9 @@ public class Runner {
 
     public static void main(String[] args) {
         LOGGER.info("inicio");
-        Configuracion.leerConfiguracion();
+        Configuracion.leerConfiguracion(args);
+        LOGGER.info("origen: " + Configuracion.RUTA_ORIGEN);
+        LOGGER.info("destino: " + Configuracion.RUTA_DESTINO);
         Consolidador consolidador = new Consolidador(Configuracion.RUTA_ORIGEN, Configuracion.RUTA_DESTINO);
         LectorArchivos lector = new LectorArchivos(consolidador);
         lector.leerArchivos();
